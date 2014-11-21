@@ -20,6 +20,7 @@ func TestHandler(t *testing.T) {
 
 	serverUrl, _ := url.Parse(server.URL)
 
+  // Fake a request that comes from somebody
 	request := &http.Request{
 		Method:        "POST",
 		URL:           serverUrl,
@@ -29,20 +30,26 @@ func TestHandler(t *testing.T) {
 
 	client := &http.Client{}
 
+  // Execute the request that we made earlier
 	response, err := client.Do(request)
 
 	if err != nil {
 		t.Errorf("unexpected error %s", err)
 	}
 
-	expectedResponse := transform.RequestJsonWrapper{Content: "PHJvb3Q+PGVsZW1lbnQ+MTIzPC9lbGVtZW50Pjwvcm9vdD4="}
+  if response.StatusCode != http.StatusOK {
+    t.Errorf("Expected status code 200 got %d", response.StatusCode)
+  }
+
+  // Expected result is a JSON object with the content
+  // encoded of the original request in base64
+	want := transform.RequestJsonWrapper{Content: "PHJvb3Q+PGVsZW1lbnQ+MTIzPC9lbGVtZW50Pjwvcm9vdD4="}
 
 	var got transform.RequestJsonWrapper
 
-	decoder := json.NewDecoder(response.Body)
-	decoder.Decode(&got)
+	json.Unmarshal(transformer.Content.Bytes(), &got)
 
-	if !reflect.DeepEqual(expectedResponse, got) {
-		t.Errorf("expected %+v got %+v", expectedResponse, got)
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("expected %+v got %+v", want, got)
 	}
 }

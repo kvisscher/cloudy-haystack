@@ -18,12 +18,12 @@ type Transformer interface {
 }
 
 type Base64JsonTransformer struct {
-	Client    http.Client
+	Content    bytes.Buffer
 	TargetUrl string
 	AuthToken string
 }
 
-func (transformer Base64JsonTransformer) Handler(writer http.ResponseWriter, request *http.Request) {
+func (transformer *Base64JsonTransformer) Handler(writer http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
 	log.Println("Received request on", request.RequestURI, "from", request.RemoteAddr)
@@ -45,9 +45,10 @@ func (transformer Base64JsonTransformer) Handler(writer http.ResponseWriter, req
 
 	wrapper := RequestJsonWrapper{Content: buf.String()}
 
-	jsonEncoder := json.NewEncoder(writer)
+	log.Printf("%+v", wrapper)
+
+	jsonEncoder := json.NewEncoder(&transformer.Content)
 	jsonEncoder.Encode(wrapper)
-	encoder.Close()
 
 	log.Println("Forwarding transformed response to", transformer.TargetUrl)
 }
