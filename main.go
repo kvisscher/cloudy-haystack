@@ -2,18 +2,17 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"github.com/kvisscher/cloudy-haystack/config"
 	"github.com/kvisscher/cloudy-haystack/transform"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 )
 
 func main() {
-	var targetHost string
 	var bindPort int
 
-	flag.StringVar(&targetHost, "target", "http://somehost.com", "The host that the message should be re-posted to as JSON")
 	flag.IntVar(&bindPort, "port", 8080, "The port to bind on to receive requests")
 	flag.Parse()
 
@@ -25,8 +24,50 @@ func main() {
 
 	defer logFile.Close()
 
-	log.SetOutput(logFile)
+	log.SetOutput(os.Stdout)
 
-	http.HandleFunc("/update", transform.UpdateHandler)
-	http.ListenAndServe(":"+strconv.Itoa(bindPort), nil)
+	configFile, err := os.Open("config.json")
+
+	if err != nil {
+		log.Fatal("Was unable to open config.json", err)
+	}
+
+	mappingConfig := config.Parse(configFile)
+
+	log.Println("Binding to port", fmt.Sprintf(":%d", bindPort))
+
+	ApplyMappings(&mappingConfig)
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", bindPort), nil))
+}
+
+// Applies all of the mappings that have been configured
+func ApplyMappings(mappingConfig *config.MappingConfig) {
+	for _, mapping := range mappingConfig.Mappings {
+		transformer := transform.Base64JsonTransformer{
+			TargetUrl: fmt.Sprintf("%s%s", mappingConfig.TargetBaseUrl, mapping.To),
+			AuthToken: mappingConfig.AuthToken,
+		}
+
+		http.HandleFunc(mapping.From, func(writer http.ResponseWriter, request *http.Request) {
+			// Let the transformer do its magic
+			transformer.Handler(writer, request)
+
+			// Create a new request with the transformed content
+			transformedRequest, err := http.NewRequest("POST", transformer.TargetUrl, &transformer.Content)
+
+			if err != nil {
+				log.Println("Something went wrong while creating a request", err)
+				return
+			}
+
+			transformer.ApplyHeaders(&transformedRequest.Header)
+
+			// Send the request to the target
+			client := http.Client{}
+			client.Do(transformedRequest)
+		})
+
+		log.Printf("Mapped %s -> %s%s\n", mapping.From, mappingConfig.TargetBaseUrl, mapping.To)
+	}
 }

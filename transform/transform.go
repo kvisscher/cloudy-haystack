@@ -15,10 +15,11 @@ type RequestJsonWrapper struct {
 
 type Transformer interface {
 	Handler(writer http.ResponseWriter, request *http.Request)
+	ApplyHeaders(header *http.Header)
 }
 
 type Base64JsonTransformer struct {
-	Content    bytes.Buffer
+	Content   bytes.Buffer
 	TargetUrl string
 	AuthToken string
 }
@@ -31,7 +32,7 @@ func (transformer *Base64JsonTransformer) Handler(writer http.ResponseWriter, re
 	body, err := ioutil.ReadAll(request.Body)
 
 	if err != nil {
-		log.Println("Was unable to read the request body")
+		log.Println("Was unable to read the request body", err)
 		return
 	}
 
@@ -45,10 +46,12 @@ func (transformer *Base64JsonTransformer) Handler(writer http.ResponseWriter, re
 
 	wrapper := RequestJsonWrapper{Content: buf.String()}
 
-	log.Printf("%+v", wrapper)
-
 	jsonEncoder := json.NewEncoder(&transformer.Content)
 	jsonEncoder.Encode(wrapper)
 
-	log.Println("Forwarding transformed response to", transformer.TargetUrl)
+	log.Println("Transformed request")
+}
+
+func (transformer *Base64JsonTransformer) ApplyHeaders(header *http.Header) {
+	header.Set("Authorization", transformer.AuthToken)
 }
