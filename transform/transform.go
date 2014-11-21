@@ -13,7 +13,17 @@ type RequestJsonWrapper struct {
 	Content string
 }
 
-func UpdateHandler(writer http.ResponseWriter, request *http.Request) {
+type Transformer interface {
+	Handler(writer http.ResponseWriter, request *http.Request)
+}
+
+type Base64JsonTransformer struct {
+	Client    http.Client
+	TargetUrl string
+	AuthToken string
+}
+
+func (transformer Base64JsonTransformer) Handler(writer http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
 	log.Println("Received request on", request.RequestURI, "from", request.RemoteAddr)
@@ -39,5 +49,5 @@ func UpdateHandler(writer http.ResponseWriter, request *http.Request) {
 	jsonEncoder.Encode(wrapper)
 	encoder.Close()
 
-	log.Println("Send response")
+	log.Println("Forwarding transformed response to", transformer.TargetUrl)
 }
