@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"io"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 
 	defer logFile.Close()
 
-	log.SetOutput(os.Stdout)
+	log.SetOutput(io.MultiWriter(os.Stdout, logFile))
 
 	configFile, err := os.Open("config.json")
 
