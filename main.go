@@ -6,7 +6,6 @@ import (
 	"github.com/kvisscher/cloudy-haystack/config"
 	"github.com/kvisscher/cloudy-haystack/transform"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -82,8 +81,8 @@ func ApplyMappings(mappingConfig *config.MappingConfig) {
 				log.Println("Expected status code 200 while posting to", transformer.TargetUrl, "got", response.StatusCode)
 			}
 
-			// Discard all of the bytes of the response
-			io.Copy(ioutil.Discard, response.Body)
+			// Send the response of the target server back to the originating server
+			io.Copy(writer, response.Body)
 		})
 
 		log.Printf("Mapped %s -> %s%s\n", mapping.From, mappingConfig.TargetBaseUrl, mapping.To)
